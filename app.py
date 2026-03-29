@@ -8,17 +8,13 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.enums import TA_JUSTIFY
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 
 # ===== CONFIG =====
 ORG = "techmobius"
 PAT = st.secrets["AZURE_PAT"]
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-pdfmetrics.registerFont(TTFont('Arial', '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'))
-
-# ===== SAME FUNCTIONS (UNCHANGED) =====
+# ===== FUNCTIONS =====
 
 def clean_html(raw_html):
     if not raw_html:
@@ -35,11 +31,8 @@ def get_iterations(project, ITERATIONS):
     data = response.json()
 
     iterations = []
-
     for it in data.get("value", []):
         name = it.get("name", "")
-
-        # ✅ YOUR FIXED VERSION
         if any(iter_name in name for iter_name in ITERATIONS):
             iterations.append(it.get("path"))
 
@@ -91,7 +84,6 @@ def generate_release_notes(cleaned_stories):
     for project, stories in cleaned_stories.items():
         combined_input += f"\nPROJECT: {project}\n{stories}\n"
 
-    # ✅ YOUR ORIGINAL PROMPT (UNCHANGED)
     prompt = f"""
 You are a Product Marketing Manager writing high-quality release notes for the XDAS platform.
 
@@ -193,7 +185,7 @@ def create_pdf(release_notes):
 
     normal_style = ParagraphStyle(
         'Normal',
-        fontName='Arial',
+        fontName='Helvetica',
         fontSize=11,
         leading=17,
         alignment=TA_JUSTIFY
