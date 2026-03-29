@@ -113,14 +113,22 @@ def generate_release_notes(cleaned_stories):
 You are a Product Marketing Manager writing high-quality release notes for the XDAS platform.
 
 GOAL:
-Generate clean, professional, user-friendly release notes.
+Generate clean, professional, user-friendly release notes (NOT technical documentation).
+
+----------------------------------------
 
 STRUCTURE:
 
 INTRODUCTION
 
-- Start with INTRODUCTION
-- Provide a short overview
+- Start with the heading: INTRODUCTION
+- First paragraph:
+We are excited to introduce the latest XDAS platform release, bringing focused enhancements across <projects>.
+
+- Then write 2–3 lines per project summarizing key updates
+- DO NOT use headings inside introduction
+
+----------------------------------------
 
 PROJECT SECTIONS:
 
@@ -128,13 +136,61 @@ PROJECT SECTIONS:
 
 <Feature Name>
 
-Feature explanation
+Feature explanation (paragraph format)
 
-RULES:
+----------------------------------------
+
+STRICT WRITING RULES:
+
+- DO NOT use sub-headings like:
+  ❌ "User actions"
+  ❌ "Why it matters"
+  ❌ "What changed"
+  ❌ "How it behaves"
+
+- Everything must be written in NATURAL PARAGRAPH FLOW
+
+----------------------------------------
+
+FEATURE CONTENT GUIDELINES:
+
+Each feature must:
+
+- Be 5–8 lines (not too short, not too long)
+- Start with what it enables or improves
+- Explain what changed
+- Include user interaction naturally (no labels)
+- Mention workflow or UI behavior if relevant
+
+----------------------------------------
+
+CONTENT FILTERING:
+
+STRICTLY IGNORE:
+• Regression
+• Testing
+• QA steps
+• Acceptance criteria
+
+----------------------------------------
+
+STYLE:
+
+- Professional
 - Clear and readable
-- No technical jargon
-- No repetition
-- Ignore acceptance criteria
+- Slightly product/marketing tone
+- NOT robotic
+- NOT overly technical
+
+----------------------------------------
+
+FORMATTING:
+
+- Clean paragraphs
+- Bullet points ONLY if absolutely necessary
+- No excessive formatting
+
+----------------------------------------
 
 INPUT:
 {combined_input}
@@ -228,7 +284,7 @@ if st.button("Generate Release Notes"):
     with st.spinner("📄 Preparing your document..."):
         create_pdf(release_notes)
 
-    # ✅ Final output
+    # ✅ Final Output
     st.success("✅ Release notes generated")
 
     st.subheader("Release Notes")
