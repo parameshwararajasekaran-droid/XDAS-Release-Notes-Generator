@@ -14,7 +14,7 @@ ORG = "techmobius"
 PAT = st.secrets["AZURE_PAT"]
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-# ===== UI STYLE (Background) =====
+# ===== BACKGROUND =====
 st.markdown(
     """
     <style>
@@ -26,16 +26,17 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ===== HEADER (Logo + Title) =====
-st.markdown(
-    """
-    <div style="display:flex; align-items:center; gap:15px;">
-        <img src="logo.png" width="120"/>
-        <h1 style="margin:0;">XDAS Release Notes Generator</h1>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# ===== HEADER (LOGO + TITLE) =====
+col1, col2 = st.columns([1, 5])
+
+with col1:
+    st.image("logo.png", width=100)
+
+with col2:
+    st.markdown(
+        "<h1 style='margin-bottom:0; font-size:28px;'>XDAS Release Notes</h1>",
+        unsafe_allow_html=True
+    )
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -112,15 +113,14 @@ def generate_release_notes(cleaned_stories):
 You are a Product Marketing Manager writing high-quality release notes for the XDAS platform.
 
 GOAL:
-Generate clean, professional, user-friendly release notes (NOT technical documentation).
+Generate clean, professional, user-friendly release notes.
 
 STRUCTURE:
 
 INTRODUCTION
 
-- Start with the heading: INTRODUCTION
-- First paragraph:
-We are excited to introduce the latest XDAS platform release, bringing focused enhancements across <projects>.
+- Start with INTRODUCTION
+- Provide a short overview
 
 PROJECT SECTIONS:
 
@@ -128,13 +128,13 @@ PROJECT SECTIONS:
 
 <Feature Name>
 
-Feature explanation (paragraph format)
+Feature explanation
 
 RULES:
-- Keep it clear and readable
-- Avoid technical jargon
-- Avoid repetition
-- Do NOT mention acceptance criteria
+- Clear and readable
+- No technical jargon
+- No repetition
+- Ignore acceptance criteria
 
 INPUT:
 {combined_input}
@@ -170,12 +170,13 @@ def create_pdf(release_notes):
     doc.build(content)
 
 
-# ===== UI INPUT =====
+# ===== INPUT =====
 
 sprint = st.text_input("Sprint (e.g., 62)")
 projects = st.text_input("Projects (comma separated)")
 
-# ===== MAIN ACTION =====
+
+# ===== MAIN BUTTON =====
 
 if st.button("Generate Release Notes"):
 
@@ -185,12 +186,12 @@ if st.button("Generate Release Notes"):
 
     status = st.empty()
 
-    with st.spinner("Generating release notes... ⏳"):
+    with st.spinner("⏳ Generating release notes..."):
 
         ITERATIONS = [f"NS-{sprint}", f"NS {sprint}"]
         PROJECTS = [p.strip() for p in projects.split(",")]
 
-        status.write("🔄 Fetching latest updates...")
+        status.info("🔄 Fetching latest updates...")
 
         all_stories = {}
 
@@ -202,7 +203,6 @@ if st.button("Generate Release Notes"):
 
             for item in details:
                 fields = item.get("fields", {})
-
                 title = fields.get("System.Title", "")
                 ac = fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", "")
 
@@ -211,7 +211,7 @@ if st.button("Generate Release Notes"):
                     "ac": ac
                 })
 
-        status.write("🧹 Organizing release data...")
+        status.info("🧹 Organizing release data...")
 
         cleaned_stories = {}
 
@@ -224,18 +224,21 @@ if st.button("Generate Release Notes"):
                     "ac": clean_html(story["ac"])
                 })
 
-        status.write("🤖 Crafting release notes...")
+        status.info("🤖 Crafting release notes...")
 
         release_notes = generate_release_notes(cleaned_stories)
 
-        status.write("📄 Preparing your document...")
+        status.info("📄 Preparing your document...")
 
         create_pdf(release_notes)
 
-        status.write("✅ Almost ready...")
+    # ✅ clean UI after done
+    status.empty()
 
-        st.subheader("Release Notes")
-        st.write(release_notes)
+    st.success("✅ Release notes generated")
 
-        with open("Release_Notes.pdf", "rb") as f:
-            st.download_button("Download PDF", f, file_name="Release_Notes.pdf")
+    st.subheader("Release Notes")
+    st.write(release_notes)
+
+    with open("Release_Notes.pdf", "rb") as f:
+        st.download_button("Download PDF", f, file_name="Release_Notes.pdf")
