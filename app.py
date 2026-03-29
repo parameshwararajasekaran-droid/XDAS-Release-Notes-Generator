@@ -184,15 +184,11 @@ if st.button("Generate Release Notes"):
         st.warning("Please enter both Sprint and Projects")
         st.stop()
 
-    status = st.empty()
+    ITERATIONS = [f"NS-{sprint}", f"NS {sprint}"]
+    PROJECTS = [p.strip() for p in projects.split(",")]
 
-    with st.spinner("⏳ Generating release notes..."):
-
-        ITERATIONS = [f"NS-{sprint}", f"NS {sprint}"]
-        PROJECTS = [p.strip() for p in projects.split(",")]
-
-        status.info("🔄 Fetching latest updates...")
-
+    # 🔄 Fetch
+    with st.spinner("🔄 Fetching latest updates..."):
         all_stories = {}
 
         for project in PROJECTS:
@@ -211,8 +207,8 @@ if st.button("Generate Release Notes"):
                     "ac": ac
                 })
 
-        status.info("🧹 Organizing release data...")
-
+    # 🧹 Clean
+    with st.spinner("🧹 Organizing release data..."):
         cleaned_stories = {}
 
         for project, stories in all_stories.items():
@@ -224,17 +220,15 @@ if st.button("Generate Release Notes"):
                     "ac": clean_html(story["ac"])
                 })
 
-        status.info("🤖 Crafting release notes...")
-
+    # 🤖 Generate
+    with st.spinner("🤖 Crafting release notes..."):
         release_notes = generate_release_notes(cleaned_stories)
 
-        status.info("📄 Preparing your document...")
-
+    # 📄 PDF
+    with st.spinner("📄 Preparing your document..."):
         create_pdf(release_notes)
 
-    # ✅ clean UI after done
-    status.empty()
-
+    # ✅ Final output
     st.success("✅ Release notes generated")
 
     st.subheader("Release Notes")
