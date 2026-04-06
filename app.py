@@ -3,7 +3,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 import re
 from html import unescape
-from openai import OpenAI
+import anthropic
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.pagesizes import letter
@@ -12,21 +12,23 @@ from reportlab.lib.enums import TA_JUSTIFY
 # ===== CONFIG =====
 ORG = "techmobius"
 PAT = st.secrets["AZURE_PAT"]
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
-# ===== BACKGROUND =====
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background: linear-gradient(135deg, #f5f7fa, #e4ecf3);
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# ===== PROJECT NAME MAPPING =====
+PROJECT_NAME_MAPPING = {
+    "workxtream development": "Manage Workflow",
+    "mojo v3": "Mojo"
+}
 
-# ===== HEADER (LOGO + TITLE) =====
+# ===== UI =====
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg, #f5f7fa, #e4ecf3);
+}
+</style>
+""", unsafe_allow_html=True)
+
 col1, col2 = st.columns([1, 5])
 
 with col1:
@@ -34,13 +36,13 @@ with col1:
 
 with col2:
     st.markdown(
-        "<h1 style='margin-bottom:0; font-size:28px;'>XDAS Release Notes</h1>",
+        "<h1 style='margin-bottom:0;'>XDAS Release Notes</h1>",
         unsafe_allow_html=True
     )
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ===== FUNCTIONS =====
+# ===== HELPERS =====
 
 def clean_html(raw_html):
     if not raw_html:
@@ -49,6 +51,10 @@ def clean_html(raw_html):
     clean = unescape(clean)
     clean = re.sub(r'\s+', ' ', clean).strip()
     return clean
+
+
+def map_project_name(project):
+    return PROJECT_NAME_MAPPING.get(project.lower(), project)
 
 
 def get_iterations(project, ITERATIONS):
@@ -103,92 +109,111 @@ def get_work_item_details(ids):
     return response.json().get("value", [])
 
 
+# ===== CORE =====
+
 def generate_release_notes(cleaned_stories):
 
     combined_input = ""
+    project_list = []
+
     for project, stories in cleaned_stories.items():
-        combined_input += f"\nPROJECT: {project}\n{stories}\n"
+        display_name = map_project_name(project)
+        project_list.append(display_name)
+        combined_input += f"\nPROJECT: {display_name}\n{stories}\n"
+
+    project_string = ", ".join(project_list)
 
     prompt = f"""
 You are a Product Marketing Manager writing high-quality release notes for the XDAS platform.
 
 GOAL:
-Generate clean, professional, user-friendly release notes (NOT technical documentation).
+Generate clean, professional, user-friendly release notes.
 
 ----------------------------------------
 
-STRUCTURE:
+STRICT FORMAT (MUST FOLLOW EXACTLY):
 
-INTRODUCTION
+**INTRODUCTION**
 
-- Start with the heading: INTRODUCTION
-- First paragraph:
-We are excited to introduce the latest XDAS platform release, bringing focused enhancements across <projects>.
+<blank line>
 
-- Then write 2–3 lines per project summarizing key updates
-- DO NOT use headings inside introduction
+We are excited to introduce the latest XDAS platform release, bringing focused enhancements across all the following modules: {project_string}.
 
-----------------------------------------
+IMPORTANT:
+- You MUST include every project listed above
+- Do NOT omit any project
+- Do NOT rename any project except:
+  - "workxtream development" MUST be written as "Manage Workflow"
 
-PROJECT SECTIONS:
+<blank line>
 
-<Project Name>
+PROJECT SUMMARIES (MANDATORY):
 
-<Feature Name>
+After the introduction, write 2–3 lines for EACH project summarizing key updates.
 
-Feature explanation (paragraph format)
+Rules:
+- Cover EVERY project listed
+- Each project must be mentioned explicitly
+- Write in natural paragraph flow (no headings)
 
-----------------------------------------
+- Use natural, varied language
+- DO NOT repeat the same verbs across projects
+- DO NOT force words like "enhances", "improves", "introduces"
 
-STRICT WRITING RULES:
-
-- DO NOT use sub-headings like:
-  ❌ "User actions"
-  ❌ "Why it matters"
-  ❌ "What changed"
-  ❌ "How it behaves"
-
-- Everything must be written in NATURAL PARAGRAPH FLOW
+- Let wording adapt to actual updates (features, fixes, improvements)
 
 ----------------------------------------
 
-FEATURE CONTENT GUIDELINES:
+PROJECT STRUCTURE:
 
-Each feature must:
+Each project MUST be formatted as:
 
-- Be 5–8 lines (not too short, not too long)
-- Start with what it enables or improves
-- Explain what changed
-- Include user interaction naturally (no labels)
-- Mention workflow or UI behavior if relevant
+**<Project Name>**
 
-----------------------------------------
+<blank line>
 
-CONTENT FILTERING:
+**<Feature Name>**
 
-STRICTLY IGNORE:
-• Regression
-• Testing
-• QA steps
-• Acceptance criteria
+<blank line>
+
+<Feature explanation paragraph>
 
 ----------------------------------------
 
-STYLE:
+STRICT RULES:
 
-- Professional
-- Clear and readable
-- Slightly product/marketing tone
-- NOT robotic
-- NOT overly technical
+- ALWAYS bold:
+  - INTRODUCTION
+  - Project names
+  - Feature names
+
+- NEVER write content on same line as headings
+- ALWAYS leave one blank line after headings
+- Never include any user stories that contain the following phrases in the their titles Post deployment testing, Regression testing, Deployment validation, ATS 
+
+- DO NOT include:
+  ❌ Questions
+  ❌ Suggestions
+  ❌ "Would you like me to..."
+  ❌ Any closing remarks
+
+- End output immediately after last feature
 
 ----------------------------------------
 
-FORMATTING:
+FEATURE GUIDELINES:
 
-- Clean paragraphs
-- Bullet points ONLY if absolutely necessary
-- No excessive formatting
+- 4–6 lines per feature
+- Clear, concise, product-focused
+
+----------------------------------------
+
+FILTER OUT:
+
+- QA
+- Testing
+- Regression
+- Acceptance criteria
 
 ----------------------------------------
 
@@ -196,19 +221,21 @@ INPUT:
 {combined_input}
 """
 
-    response = client.chat.completions.create(
-        model="gpt-5-mini",
-        messages=[{"role": "user", "content": prompt}]
+    response = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=4000,
+        messages=[
+            {"role": "user", "content": prompt}
+        ]
     )
 
-    return response.choices[0].message.content
+    return response.content[0].text
 
 
 def create_pdf(release_notes):
-
     doc = SimpleDocTemplate("Release_Notes.pdf", pagesize=letter)
 
-    normal_style = ParagraphStyle(
+    style = ParagraphStyle(
         'Normal',
         fontName='Helvetica',
         fontSize=11,
@@ -218,10 +245,20 @@ def create_pdf(release_notes):
 
     content = []
 
+    def convert_markdown_to_html(text):
+        return re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", text)
+
     for line in release_notes.split("\n"):
-        if line.strip():
-            content.append(Paragraph(line, normal_style))
+        line = line.strip()
+
+        if not line:
             content.append(Spacer(1, 6))
+            continue
+
+        formatted_line = convert_markdown_to_html(line)
+
+        content.append(Paragraph(formatted_line, style))
+        content.append(Spacer(1, 6))
 
     doc.build(content)
 
@@ -231,8 +268,7 @@ def create_pdf(release_notes):
 sprint = st.text_input("Sprint (e.g., 62)")
 projects = st.text_input("Projects (comma separated)")
 
-
-# ===== MAIN BUTTON =====
+# ===== ACTION =====
 
 if st.button("Generate Release Notes"):
 
@@ -243,8 +279,7 @@ if st.button("Generate Release Notes"):
     ITERATIONS = [f"NS-{sprint}", f"NS {sprint}"]
     PROJECTS = [p.strip() for p in projects.split(",")]
 
-    # 🔄 Fetch
-    with st.spinner("🔄 Fetching latest updates..."):
+    with st.spinner("🔄 Fetching data..."):
         all_stories = {}
 
         for project in PROJECTS:
@@ -255,16 +290,12 @@ if st.button("Generate Release Notes"):
 
             for item in details:
                 fields = item.get("fields", {})
-                title = fields.get("System.Title", "")
-                ac = fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", "")
-
                 all_stories[project].append({
-                    "title": title,
-                    "ac": ac
+                    "title": fields.get("System.Title", ""),
+                    "ac": fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", "")
                 })
 
-    # 🧹 Clean
-    with st.spinner("🧹 Organizing release data..."):
+    with st.spinner("🧹 Cleaning data..."):
         cleaned_stories = {}
 
         for project, stories in all_stories.items():
@@ -276,19 +307,16 @@ if st.button("Generate Release Notes"):
                     "ac": clean_html(story["ac"])
                 })
 
-    # 🤖 Generate
-    with st.spinner("🤖 Crafting release notes..."):
+    with st.spinner("🤖 Generating release notes..."):
         release_notes = generate_release_notes(cleaned_stories)
 
-    # 📄 PDF
-    with st.spinner("📄 Preparing your document..."):
+    with st.spinner("📄 Creating PDF..."):
         create_pdf(release_notes)
 
-    # ✅ Final Output
     st.success("✅ Release notes generated")
 
     st.subheader("Release Notes")
-    st.write(release_notes)
+    st.markdown(release_notes)
 
     with open("Release_Notes.pdf", "rb") as f:
         st.download_button("Download PDF", f, file_name="Release_Notes.pdf")
