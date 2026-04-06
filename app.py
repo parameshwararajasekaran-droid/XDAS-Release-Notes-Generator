@@ -20,41 +20,15 @@ PROJECT_NAME_MAPPING = {
     "mojo v3": "Mojo"
 }
 
-# ===== DARK MODE TOGGLE =====
-mode = st.toggle("🌙 Dark Mode")
-
-if mode:
-    st.markdown("""
-    <style>
-    .stApp {
-        background: #0f172a;
-        color: #e5e7eb;
-    }
-    input, textarea {
-        background-color: #1e293b !important;
-        color: #e5e7eb !important;
-    }
-    .stButton>button {
-        background-color: #334155;
-        color: white;
-        border-radius: 8px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <style>
-    .stApp {
-        background: linear-gradient(135deg, #f5f7fa, #e4ecf3);
-        color: #1f2937;
-    }
-    .stButton>button {
-        border-radius: 8px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 # ===== UI =====
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg, #f5f7fa, #e4ecf3);
+}
+</style>
+""", unsafe_allow_html=True)
+
 col1, col2 = st.columns([1, 5])
 
 with col1:
@@ -168,12 +142,25 @@ We are excited to introduce the latest XDAS platform release, bringing focused e
 IMPORTANT:
 - You MUST include every project listed above
 - Do NOT omit any project
+- Do NOT rename any project except:
+  - "workxtream development" MUST be written as "Manage Workflow"
 
 <blank line>
 
 PROJECT SUMMARIES (MANDATORY):
 
 After the introduction, write 2–3 lines for EACH project summarizing key updates.
+
+Rules:
+- Cover EVERY project listed
+- Each project must be mentioned explicitly
+- Write in natural paragraph flow (no headings)
+
+- Use natural, varied language
+- DO NOT repeat the same verbs across projects
+- DO NOT force words like "enhances", "improves", "introduces"
+
+- Let wording adapt to actual updates (features, fixes, improvements)
 
 ----------------------------------------
 
@@ -195,9 +182,39 @@ Each project MUST be formatted as:
 
 STRICT RULES:
 
-- ALWAYS bold headings
+- ALWAYS bold:
+  - INTRODUCTION
+  - Project names
+  - Feature names
+
 - NEVER write content on same line as headings
+- ALWAYS leave one blank line after headings
+- Never include any user stories that contain the following phrases in the their titles Post deployment testing, Regression testing, Deployment validation, ATS 
+
+- DO NOT include:
+  ❌ Questions
+  ❌ Suggestions
+  ❌ "Would you like me to..."
+  ❌ Any closing remarks
+  
+
 - End output immediately after last feature
+
+----------------------------------------
+
+FEATURE GUIDELINES:
+
+- 4–6 lines per feature
+- Clear, concise, product-focused
+
+----------------------------------------
+
+FILTER OUT:
+
+- QA
+- Testing
+- Regression
+- Acceptance criteria
 
 ----------------------------------------
 
@@ -206,7 +223,7 @@ INPUT:
 """
 
     response = client.messages.create(
-        model="claude-3-5-sonnet-latest",
+        model="claude-3-haiku-20240307",
         max_tokens=4000,
         messages=[
             {"role": "user", "content": prompt}
@@ -303,4 +320,4 @@ if st.button("Generate Release Notes"):
     st.markdown(release_notes)
 
     with open("Release_Notes.pdf", "rb") as f:
-        st.download_button("⬇️ Download PDF", f, file_name="Release_Notes.pdf")
+        st.download_button("Download PDF", f, file_name="Release_Notes.pdf")
