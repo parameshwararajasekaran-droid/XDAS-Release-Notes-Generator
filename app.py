@@ -14,111 +14,92 @@ ORG = "techmobius"
 PAT = st.secrets["AZURE_PAT"]
 client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
-# ===== THEME STATE =====
-if "theme" not in st.session_state:
-    st.session_state.theme = "dark"
+# ===== PROJECT NAME MAPPING =====
+PROJECT_NAME_MAPPING = {
+    "workxtream development": "Manage Workflow",
+    "mojo v3": "Mojo"
+}
 
-# ===== THEME COLORS =====
-if st.session_state.theme == "dark":
-    bg_main = "#020617"
-    bg_secondary = "#0f172a"
-    text_primary = "#f9fafb"
-    text_secondary = "#d1d5db"
-    input_bg = "#111827"
-    border = "#374151"
-else:
-    bg_main = "#f9fafb"
-    bg_secondary = "#ffffff"
-    text_primary = "#111827"
-    text_secondary = "#374151"
-    input_bg = "#ffffff"
-    border = "#d1d5db"
-
-# ===== UI STYLING =====
-st.markdown(f"""
+# ===== UI STYLING (ADDED ONLY) =====
+st.markdown("""
 <style>
 
 /* Background */
-.stApp {{
-    background: linear-gradient(180deg, {bg_secondary}, {bg_main});
-    color: {text_secondary};
-}}
+.stApp {
+    background: linear-gradient(180deg, #0f172a, #020617);
+    color: #e5e7eb;
+}
 
 /* Headings */
-h1, h2, h3 {{
-    color: {text_primary};
+h1, h2, h3 {
+    color: #f9fafb;
     font-weight: 600;
-}}
+}
 
 /* Labels */
-label {{
-    color: {text_secondary} !important;
-}}
+label {
+    color: #9ca3af !important;
+    font-size: 0.9rem;
+}
 
 /* Inputs */
-input, textarea {{
-    background-color: {input_bg} !important;
-    color: {text_primary} !important;
-    border: 1px solid {border} !important;
+input, textarea {
+    background-color: #111827 !important;
+    color: #e5e7eb !important;
+    border: 1px solid #374151 !important;
     border-radius: 10px !important;
     padding: 8px !important;
-}}
+}
 
-input:focus, textarea:focus {{
+/* Focus effect */
+input:focus, textarea:focus {
     border: 1px solid #10b981 !important;
     box-shadow: 0 0 0 1px #10b98133;
-}}
+}
 
-/* Generate Button */
-.stButton > button {{
+/* Buttons */
+.stButton > button {
     background: linear-gradient(135deg, #10b981, #059669);
     color: white;
     border-radius: 10px;
     border: none;
     padding: 10px 18px;
     font-weight: 600;
-}}
+    transition: all 0.2s ease;
+}
 
-/* PDF Button */
-.stDownloadButton > button {{
-    background: #1f2937;
+/* Hover */
+.stButton > button:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+/* Markdown output */
+.markdown-text-container {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #d1d5db;
+}
+
+/* Bold text */
+.markdown-text-container strong {
     color: #f9fafb;
-    border: 1px solid #374151;
-    border-radius: 10px;
-    padding: 10px 18px;
-    font-weight: 600;
-    font-size: 14px;
-}}
-
-.stDownloadButton > button:hover {{
-    background: #111827;
-    border: 1px solid #10b981;
-    box-shadow: 0 0 10px rgba(16,185,129,0.3);
-}}
-
-/* Bottom Toggle Buttons */
-.theme-toggle button {{
-    font-size: 12px !important;
-    padding: 6px 12px !important;
-    border-radius: 8px !important;
-    border: 1px solid {border} !important;
-    background: transparent !important;
-    color: {text_secondary} !important;
-}}
-
-.theme-toggle button:hover {{
-    border: 1px solid #10b981 !important;
-    color: #10b981 !important;
-}}
+}
 
 </style>
 """, unsafe_allow_html=True)
 
 # ===== HEADER =====
-st.markdown(
-    "<h1 style='text-align:center;'>XDAS Release Notes</h1>",
-    unsafe_allow_html=True
-)
+col1, col2 = st.columns([1, 5])
+
+with col1:
+    st.image("logo.png", width=100)
+
+with col2:
+    st.markdown(
+        "<h1 style='margin-bottom:0;'>XDAS Release Notes</h1>",
+        unsafe_allow_html=True
+    )
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -131,6 +112,10 @@ def clean_html(raw_html):
     clean = unescape(clean)
     clean = re.sub(r'\s+', ' ', clean).strip()
     return clean
+
+
+def map_project_name(project):
+    return PROJECT_NAME_MAPPING.get(project.lower(), project)
 
 
 def get_iterations(project, ITERATIONS):
@@ -185,7 +170,7 @@ def get_work_item_details(ids):
     return response.json().get("value", [])
 
 
-# ===== CORE (PROMPT UNCHANGED) =====
+# ===== CORE =====
 
 def generate_release_notes(cleaned_stories):
 
@@ -193,8 +178,9 @@ def generate_release_notes(cleaned_stories):
     project_list = []
 
     for project, stories in cleaned_stories.items():
-        project_list.append(project)
-        combined_input += f"\nPROJECT: {project}\n{stories}\n"
+        display_name = map_project_name(project)
+        project_list.append(display_name)
+        combined_input += f"\nPROJECT: {display_name}\n{stories}\n"
 
     project_string = ", ".join(project_list)
 
@@ -271,6 +257,7 @@ STRICT RULES:
   ❌ Suggestions
   ❌ "Would you like me to..."
   ❌ Any closing remarks
+  
 
 - End output immediately after last feature
 
@@ -299,7 +286,9 @@ INPUT:
     response = client.messages.create(
         model="claude-sonnet-4-0",
         max_tokens=4000,
-        messages=[{"role": "user", "content": prompt}]
+        messages=[
+            {"role": "user", "content": prompt}
+        ]
     )
 
     return response.content[0].text
@@ -318,6 +307,9 @@ def create_pdf(release_notes):
 
     content = []
 
+    def convert_markdown_to_html(text):
+        return re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", text)
+
     for line in release_notes.split("\n"):
         line = line.strip()
 
@@ -325,7 +317,8 @@ def create_pdf(release_notes):
             content.append(Spacer(1, 6))
             continue
 
-        formatted_line = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", line)
+        formatted_line = convert_markdown_to_html(line)
+
         content.append(Paragraph(formatted_line, style))
         content.append(Spacer(1, 6))
 
@@ -333,57 +326,59 @@ def create_pdf(release_notes):
 
 
 # ===== INPUT =====
+
 sprint = st.text_input("Sprint (e.g., 62)")
 projects = st.text_input("Projects (comma separated)")
 
 # ===== ACTION =====
+
 if st.button("Generate Release Notes"):
+
+    if not sprint or not projects:
+        st.warning("Please enter both Sprint and Projects")
+        st.stop()
 
     ITERATIONS = [f"NS-{sprint}", f"NS {sprint}"]
     PROJECTS = [p.strip() for p in projects.split(",")]
 
-    all_stories = {}
+    with st.spinner("🔄 Fetching data..."):
+        all_stories = {}
 
-    for project in PROJECTS:
-        ids = get_work_item_ids(project, ITERATIONS)
-        details = get_work_item_details(ids)
+        for project in PROJECTS:
+            ids = get_work_item_ids(project, ITERATIONS)
+            details = get_work_item_details(ids)
 
-        all_stories[project] = []
+            all_stories[project] = []
 
-        for item in details:
-            fields = item.get("fields", {})
-            all_stories[project].append({
-                "title": fields.get("System.Title", ""),
-                "ac": clean_html(fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", ""))
-            })
+            for item in details:
+                fields = item.get("fields", {})
+                all_stories[project].append({
+                    "title": fields.get("System.Title", ""),
+                    "ac": fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", "")
+                })
 
-    release_notes = generate_release_notes(all_stories)
-    create_pdf(release_notes)
+    with st.spinner("🧹 Cleaning data..."):
+        cleaned_stories = {}
 
-    st.success("Release notes generated")
+        for project, stories in all_stories.items():
+            cleaned_stories[project] = []
 
-    st.markdown("### Release Notes")
+            for story in stories:
+                cleaned_stories[project].append({
+                    "title": story["title"],
+                    "ac": clean_html(story["ac"])
+                })
+
+    with st.spinner("🤖 Generating release notes..."):
+        release_notes = generate_release_notes(cleaned_stories)
+
+    with st.spinner("📄 Creating PDF..."):
+        create_pdf(release_notes)
+
+    st.success("✅ Release notes generated")
+
+    st.subheader("Release Notes")
     st.markdown(release_notes)
 
     with open("Release_Notes.pdf", "rb") as f:
-        st.download_button("⬇ Download PDF", f, file_name="Release_Notes.pdf")
-
-
-# ===== BOTTOM THEME TOGGLE =====
-st.markdown("<br><br>", unsafe_allow_html=True)
-
-st.markdown("<div class='theme-toggle'>", unsafe_allow_html=True)
-
-col1, col2, col3 = st.columns([4,1,1])
-
-with col2:
-    if st.button("Dark"):
-        st.session_state.theme = "dark"
-        st.rerun()
-
-with col3:
-    if st.button("Light"):
-        st.session_state.theme = "light"
-        st.rerun()
-
-st.markdown("</div>", unsafe_allow_html=True)
+        st.download_button("Download PDF", f, file_name="Release_Notes.pdf")
