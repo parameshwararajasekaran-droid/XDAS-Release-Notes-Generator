@@ -14,105 +14,79 @@ ORG = "techmobius"
 PAT = st.secrets["AZURE_PAT"]
 client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
-# ===== THEME STATE =====
-if "theme" not in st.session_state:
-    st.session_state.theme = "dark"
-
-# ===== TOP RIGHT TOGGLE =====
-col_spacer, col_toggle = st.columns([10, 1])
-
-with col_toggle:
-    if st.button("🌙" if st.session_state.theme == "dark" else "☀️"):
-        st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
-        st.rerun()
-
-# ===== THEME COLORS =====
-if st.session_state.theme == "dark":
-    bg_main = "#020617"
-    bg_secondary = "#0f172a"
-    text_primary = "#f9fafb"
-    text_secondary = "#d1d5db"
-    input_bg = "#111827"
-    border = "#374151"
-else:
-    bg_main = "#f9fafb"
-    bg_secondary = "#ffffff"
-    text_primary = "#111827"
-    text_secondary = "#374151"
-    input_bg = "#ffffff"
-    border = "#d1d5db"
-
-# ===== UI STYLING =====
-st.markdown(f"""
+# ===== UI STYLING (CLEAN DARK) =====
+st.markdown("""
 <style>
 
 /* Background */
-.stApp {{
-    background: linear-gradient(180deg, {bg_secondary}, {bg_main});
-    color: {text_secondary};
-}}
+.stApp {
+    background: linear-gradient(180deg, #0f172a, #020617);
+    color: #d1d5db;
+}
 
 /* Headings */
-h1, h2, h3 {{
-    color: {text_primary};
-    font-weight: 600;
-}}
+h1 {
+    color: #f9fafb;
+    font-weight: 700;
+    text-align: center;
+}
 
 /* Labels */
-label {{
-    color: {text_secondary} !important;
-}}
+label {
+    color: #9ca3af !important;
+}
 
 /* Inputs */
-input, textarea {{
-    background-color: {input_bg} !important;
-    color: {text_primary} !important;
-    border: 1px solid {border} !important;
+input, textarea {
+    background-color: #111827 !important;
+    color: #f9fafb !important;
+    border: 1px solid #374151 !important;
     border-radius: 10px !important;
-    padding: 8px !important;
-}}
+    padding: 10px !important;
+}
 
-input:focus, textarea:focus {{
+/* Focus */
+input:focus, textarea:focus {
     border: 1px solid #10b981 !important;
     box-shadow: 0 0 0 1px #10b98133;
-}}
+}
 
 /* Generate Button */
-.stButton > button {{
+.stButton > button {
     background: linear-gradient(135deg, #10b981, #059669);
     color: white;
     border-radius: 10px;
     border: none;
-    padding: 10px 18px;
+    padding: 12px 20px;
     font-weight: 600;
-}}
+}
 
-/* PDF Button */
-.stDownloadButton > button {{
+/* Download PDF Button */
+.stDownloadButton > button {
     background: #1f2937;
     color: #f9fafb;
     border: 1px solid #374151;
     border-radius: 10px;
     padding: 10px 18px;
     font-weight: 600;
-    font-size: 14px;
-}}
+}
 
-.stDownloadButton > button:hover {{
-    background: #111827;
+.stDownloadButton > button:hover {
     border: 1px solid #10b981;
     box-shadow: 0 0 10px rgba(16,185,129,0.3);
-}}
+}
+
+/* Output text */
+.markdown-text-container {
+    line-height: 1.7;
+    font-size: 0.95rem;
+}
 
 </style>
 """, unsafe_allow_html=True)
 
 # ===== HEADER =====
-st.markdown(
-    "<h1 style='text-align:center;'>XDAS Release Notes</h1>",
-    unsafe_allow_html=True
-)
-
+st.markdown("<h1>XDAS Release Notes</h1>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ===== HELPERS =====
