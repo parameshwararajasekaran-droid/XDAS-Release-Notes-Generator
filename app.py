@@ -21,14 +21,14 @@ if "theme" not in st.session_state:
 if "release_notes" not in st.session_state:
     st.session_state.release_notes = None
 
-# ===== TOP RIGHT TOGGLE =====
+# ===== TOGGLE =====
 col1, col2 = st.columns([10, 1])
 with col2:
     if st.button("🌙" if st.session_state.theme == "dark" else "☀️"):
         st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
         st.rerun()
 
-# ===== THEME COLORS =====
+# ===== THEME =====
 if st.session_state.theme == "dark":
     bg_main = "#020617"
     bg_secondary = "#0f172a"
@@ -44,107 +44,52 @@ else:
     input_bg = "#ffffff"
     border = "#d1d5db"
 
-# ===== UI STYLING =====
+# ===== UI =====
 st.markdown(f"""
 <style>
 .stApp {{
     background: linear-gradient(180deg, {bg_secondary}, {bg_main});
-    color: {text_secondary};
 }}
-
 h1 {{
     color: {text_primary};
-    font-weight: 700;
-    text-align: center;
+    text-align:center;
 }}
-
-label {{
-    color: {text_secondary} !important;
-}}
-
-input, textarea {{
+input {{
     background-color: {input_bg} !important;
     color: {text_primary} !important;
     border: 1px solid {border} !important;
     border-radius: 10px !important;
-    padding: 10px !important;
 }}
-
-input:focus, textarea:focus {{
-    border: 1px solid #10b981 !important;
-    box-shadow: 0 0 0 1px #10b98133;
-}}
-
 .stButton > button {{
     background: linear-gradient(135deg, #10b981, #059669);
     color: white;
     border-radius: 10px;
-    border: none;
     padding: 12px 20px;
-    font-weight: 600;
-}}
-
-.stDownloadButton > button {{
-    background: #1f2937;
-    color: #f9fafb;
-    border: 1px solid #374151;
-    border-radius: 10px;
-    padding: 10px 18px;
-    font-weight: 600;
-}}
-
-.stDownloadButton > button:hover {{
-    border: 1px solid #10b981;
-    box-shadow: 0 0 10px rgba(16,185,129,0.3);
-}}
-
-.markdown-text-container {{
-    line-height: 1.7;
-    font-size: 0.95rem;
 }}
 </style>
 """, unsafe_allow_html=True)
 
 # ===== HEADER =====
 st.markdown("<h1>XDAS Release Notes</h1>", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
 
 # ===== HELPERS =====
 
 def clean_html(raw_html):
-    if not raw_html:
-        return ""
-    clean = re.sub('<.*?>', ' ', raw_html)
-    clean = unescape(clean)
-    clean = re.sub(r'\s+', ' ', clean).strip()
-    return clean
-
+    clean = re.sub('<.*?>', ' ', raw_html or "")
+    return re.sub(r'\s+', ' ', unescape(clean)).strip()
 
 def get_iterations(project, ITERATIONS):
     url = f"https://dev.azure.com/{ORG}/{project}/_apis/work/teamsettings/iterations?api-version=7.0"
-    response = requests.get(url, auth=HTTPBasicAuth('', PAT))
-    data = response.json()
-
-    iterations = []
-    for it in data.get("value", []):
-        name = it.get("name", "")
-        if any(iter_name in name for iter_name in ITERATIONS):
-            iterations.append(it.get("path"))
-
-    return iterations
-
+    r = requests.get(url, auth=HTTPBasicAuth('', PAT)).json()
+    return [it["path"] for it in r.get("value", []) if any(x in it["name"] for x in ITERATIONS)]
 
 def get_work_item_ids(project, ITERATIONS):
     url = f"https://dev.azure.com/{ORG}/{project}/_apis/wit/wiql?api-version=7.0"
-
-    iteration_paths = get_iterations(project, ITERATIONS)
-
-    if not iteration_paths:
+    paths = get_iterations(project, ITERATIONS)
+    if not paths:
         return []
 
-    iteration_filter = " OR ".join([
-        f"[System.IterationPath] UNDER '{it}'" for it in iteration_paths
-    ])
+    filt = " OR ".join([f"[System.IterationPath] UNDER '{p}'" for p in paths])
 
     query = {
         "query": f"""
@@ -153,24 +98,18 @@ def get_work_item_ids(project, ITERATIONS):
         WHERE
             [System.WorkItemType] = 'User Story'
             AND [System.State] = 'Closed'
-            AND ({iteration_filter})
+            AND ({filt})
         """
     }
 
-    response = requests.post(url, json=query, auth=HTTPBasicAuth('', PAT))
-    return [item["id"] for item in response.json().get("workItems", [])]
-
+    r = requests.post(url, json=query, auth=HTTPBasicAuth('', PAT)).json()
+    return [i["id"] for i in r.get("workItems", [])]
 
 def get_work_item_details(ids):
     if not ids:
         return []
-
-    ids_str = ",".join(map(str, ids))
-    url = f"https://dev.azure.com/{ORG}/_apis/wit/workitems?ids={ids_str}&api-version=7.0"
-
-    response = requests.get(url, auth=HTTPBasicAuth('', PAT))
-    return response.json().get("value", [])
-
+    url = f"https://dev.azure.com/{ORG}/_apis/wit/workitems?ids={','.join(map(str, ids))}&api-version=7.0"
+    return requests.get(url, auth=HTTPBasicAuth('', PAT)).json().get("value", [])
 
 # ===== CORE =====
 
@@ -185,99 +124,83 @@ def generate_release_notes(cleaned_stories):
 
     project_string = ", ".join(project_list)
 
-    prompt = f"""<KEEP YOUR ORIGINAL PROMPT HERE EXACTLY>"""
+    prompt = f"""
+You are a Product Marketing Manager writing high-quality release notes for the XDAS platform.
 
-    response = client.messages.create(
+STRICT FORMAT:
+
+INTRODUCTION
+
+We are excited to introduce the latest XDAS platform release covering: {project_string}
+
+PROJECT SUMMARIES:
+Write 2–3 lines per project.
+
+PROJECT FORMAT:
+
+**Project Name**
+
+**Feature Name**
+
+Description (4–6 lines)
+
+RULES:
+- Do NOT include QA/testing
+- Do NOT add conclusions
+- Do NOT merge sections
+"""
+
+    res = client.messages.create(
         model="claude-sonnet-4-0",
         max_tokens=4000,
         messages=[{"role": "user", "content": prompt}]
     )
 
-    return response.content[0].text
+    return res.content[0].text
 
-
-def create_pdf(release_notes):
+def create_pdf(text):
     doc = SimpleDocTemplate("Release_Notes.pdf", pagesize=letter)
-
-    style = ParagraphStyle(
-        'Normal',
-        fontName='Helvetica',
-        fontSize=11,
-        leading=17,
-        alignment=TA_JUSTIFY
-    )
-
+    style = ParagraphStyle('Normal', fontSize=11, leading=16)
     content = []
 
-    for line in release_notes.split("\n"):
-        line = line.strip()
-
-        if not line:
+    for line in text.split("\n"):
+        if not line.strip():
             content.append(Spacer(1, 6))
-            continue
-
-        formatted_line = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", line)
-        content.append(Paragraph(formatted_line, style))
-        content.append(Spacer(1, 6))
+        else:
+            content.append(Paragraph(re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", line), style))
 
     doc.build(content)
 
-
 # ===== INPUT =====
-sprint = st.text_input("Sprint (e.g., 62)")
-projects = st.text_input("Projects (comma separated)")
+sprint = st.text_input("Sprint")
+projects = st.text_input("Projects")
 
-# ===== ACTION =====
+# ===== RUN =====
 if st.button("Generate Release Notes"):
-
-    if not sprint or not projects:
-        st.warning("Please enter both Sprint and Projects")
-        st.stop()
 
     ITERATIONS = [f"NS-{sprint}", f"NS {sprint}"]
     PROJECTS = [p.strip() for p in projects.split(",")]
 
-    with st.spinner("🔄 Fetching data..."):
+    with st.spinner("Fetching..."):
         all_stories = {}
-
-        for project in PROJECTS:
-            ids = get_work_item_ids(project, ITERATIONS)
+        for p in PROJECTS:
+            ids = get_work_item_ids(p, ITERATIONS)
             details = get_work_item_details(ids)
 
-            all_stories[project] = []
+            all_stories[p] = [{
+                "title": d["fields"].get("System.Title", ""),
+                "ac": clean_html(d["fields"].get("Microsoft.VSTS.Common.AcceptanceCriteria", ""))
+            } for d in details]
 
-            for item in details:
-                fields = item.get("fields", {})
-                all_stories[project].append({
-                    "title": fields.get("System.Title", ""),
-                    "ac": fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", "")
-                })
+    with st.spinner("Generating..."):
+        st.session_state.release_notes = generate_release_notes(all_stories)
 
-    with st.spinner("🧹 Cleaning data..."):
-        cleaned_stories = {}
+    create_pdf(st.session_state.release_notes)
 
-        for project, stories in all_stories.items():
-            cleaned_stories[project] = []
-
-            for story in stories:
-                cleaned_stories[project].append({
-                    "title": story["title"],
-                    "ac": clean_html(story["ac"])
-                })
-
-    with st.spinner("🤖 Generating release notes..."):
-        st.session_state.release_notes = generate_release_notes(cleaned_stories)
-
-    with st.spinner("📄 Creating PDF..."):
-        create_pdf(st.session_state.release_notes)
-
-    st.success("✅ Release notes generated")
-
-
-# ===== DISPLAY (PERSISTENT) =====
+# ===== DISPLAY =====
 if st.session_state.release_notes:
     st.markdown("### Release Notes")
     st.markdown(st.session_state.release_notes)
 
     with open("Release_Notes.pdf", "rb") as f:
-        st.download_button("⬇ Download PDF", f, file_name="Release_Notes.pdf")
+        st.download_button("Download PDF", f)
