@@ -18,13 +18,18 @@ client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
 
-# ===== TOP RIGHT TOGGLE =====
-col_spacer, col_toggle = st.columns([10, 1])
+# ===== SUBTLE TOP RIGHT TOGGLE =====
+col_spacer, col_toggle = st.columns([12, 1])
 
 with col_toggle:
-    if st.button("🌙" if st.session_state.theme == "dark" else "☀️"):
-        st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
-        st.rerun()
+    mode = st.radio(
+        "",
+        ["Dark", "Light"],
+        index=0 if st.session_state.theme == "dark" else 1,
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    st.session_state.theme = mode.lower()
 
 # ===== THEME COLORS =====
 if st.session_state.theme == "dark":
@@ -102,6 +107,16 @@ input:focus, textarea:focus {{
     background: #111827;
     border: 1px solid #10b981;
     box-shadow: 0 0 10px rgba(16,185,129,0.3);
+}}
+
+/* Subtle toggle */
+div[role="radiogroup"] {{
+    font-size: 11px !important;
+    opacity: 0.6;
+}}
+
+div[role="radiogroup"]:hover {{
+    opacity: 1;
 }}
 
 </style>
@@ -290,7 +305,7 @@ INPUT:
 """
 
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-sonnet-4-0",
         max_tokens=4000,
         messages=[{"role": "user", "content": prompt}]
     )
@@ -360,3 +375,5 @@ if st.button("Generate Release Notes"):
 
     with open("Release_Notes.pdf", "rb") as f:
         st.download_button("⬇ Download PDF", f, file_name="Release_Notes.pdf")
+
+
