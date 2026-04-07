@@ -7,7 +7,6 @@ import anthropic
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.enums import TA_JUSTIFY
 
 # ===== CONFIG =====
 ORG = "techmobius"
@@ -28,44 +27,75 @@ with col2:
         st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
         st.rerun()
 
-# ===== THEME =====
+# ===== THEME COLORS =====
 if st.session_state.theme == "dark":
     bg_main = "#020617"
     bg_secondary = "#0f172a"
-    text_primary = "#f9fafb"
-    text_secondary = "#d1d5db"
-    input_bg = "#111827"
-    border = "#374151"
 else:
     bg_main = "#f9fafb"
     bg_secondary = "#ffffff"
-    text_primary = "#111827"
-    text_secondary = "#374151"
-    input_bg = "#ffffff"
-    border = "#d1d5db"
 
-# ===== UI =====
+# ===== UPDATED UI STYLING (FIXED READABILITY) =====
 st.markdown(f"""
 <style>
+
 .stApp {{
     background: linear-gradient(180deg, {bg_secondary}, {bg_main});
 }}
+
+/* Title */
 h1 {{
-    color: {text_primary};
-    text-align:center;
+    color: #ffffff;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.5px;
 }}
-input {{
-    background-color: {input_bg} !important;
-    color: {text_primary} !important;
-    border: 1px solid {border} !important;
+
+/* Labels */
+label {{
+    color: #cbd5f5 !important;
+    font-weight: 500;
+}}
+
+/* Inputs */
+input, textarea {{
+    background-color: #0f172a !important;
+    color: #f9fafb !important;
+    border: 1px solid #475569 !important;
     border-radius: 10px !important;
+    padding: 10px !important;
 }}
+
+/* Focus */
+input:focus, textarea:focus {{
+    border: 1px solid #10b981 !important;
+    box-shadow: 0 0 0 1px rgba(16,185,129,0.3);
+}}
+
+/* Button */
 .stButton > button {{
     background: linear-gradient(135deg, #10b981, #059669);
     color: white;
     border-radius: 10px;
     padding: 12px 20px;
+    font-weight: 600;
 }}
+
+/* Download button */
+.stDownloadButton > button {{
+    background: #1e293b;
+    color: #f9fafb;
+    border: 1px solid #475569;
+    border-radius: 10px;
+}}
+
+/* Output text */
+.markdown-text-container {{
+    color: #e5e7eb !important;
+    line-height: 1.7;
+    font-size: 15px;
+}}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -86,6 +116,7 @@ def get_iterations(project, ITERATIONS):
 def get_work_item_ids(project, ITERATIONS):
     url = f"https://dev.azure.com/{ORG}/{project}/_apis/wit/wiql?api-version=7.0"
     paths = get_iterations(project, ITERATIONS)
+
     if not paths:
         return []
 
@@ -108,10 +139,11 @@ def get_work_item_ids(project, ITERATIONS):
 def get_work_item_details(ids):
     if not ids:
         return []
+
     url = f"https://dev.azure.com/{ORG}/_apis/wit/workitems?ids={','.join(map(str, ids))}&api-version=7.0"
     return requests.get(url, auth=HTTPBasicAuth('', PAT)).json().get("value", [])
 
-# ===== CORE =====
+# ===== CORE (YOUR PROMPT UNCHANGED) =====
 
 def generate_release_notes(cleaned_stories):
 
@@ -127,27 +159,97 @@ def generate_release_notes(cleaned_stories):
     prompt = f"""
 You are a Product Marketing Manager writing high-quality release notes for the XDAS platform.
 
-STRICT FORMAT:
+GOAL:
+Generate clean, professional, user-friendly release notes.
 
-INTRODUCTION
+----------------------------------------
 
-We are excited to introduce the latest XDAS platform release covering: {project_string}
+STRICT FORMAT (MUST FOLLOW EXACTLY):
 
-PROJECT SUMMARIES:
-Write 2–3 lines per project.
+**INTRODUCTION**
 
-PROJECT FORMAT:
+<blank line>
 
-**Project Name**
+We are excited to introduce the latest XDAS platform release, bringing focused enhancements across all the following modules: {project_string}.
 
-**Feature Name**
+IMPORTANT:
+- You MUST include every project listed above
+- Do NOT omit any project
+- Do NOT rename any project except:
+  - "workxtream development" MUST be written as "Manage Workflow"
 
-Description (4–6 lines)
+<blank line>
 
-RULES:
-- Do NOT include QA/testing
-- Do NOT add conclusions
-- Do NOT merge sections
+PROJECT SUMMARIES (MANDATORY):
+
+After the introduction, write 2–3 lines for EACH project summarizing key updates.
+
+Rules:
+- Cover EVERY project listed
+- Each project must be mentioned explicitly
+- Write in natural paragraph flow (no headings)
+- Use natural, varied language
+- DO NOT repeat the same verbs across projects
+- DO NOT force words like "enhances", "improves", "introduces"
+- Let wording adapt to actual updates (features, fixes, improvements)
+
+----------------------------------------
+
+PROJECT STRUCTURE:
+
+Each project MUST be formatted as:
+
+**<Project Name>**
+
+<blank line>
+
+**<Feature Name>**
+
+<blank line>
+
+<Feature explanation paragraph>
+
+----------------------------------------
+
+STRICT RULES:
+
+- ALWAYS bold:
+  - INTRODUCTION
+  - Project names
+  - Feature names
+
+- NEVER write content on same line as headings
+- ALWAYS leave one blank line after headings
+- Never include any user stories that contain the following phrases in their titles: Post deployment testing, Regression testing, Deployment validation, ATS
+
+- DO NOT include:
+  ❌ Questions
+  ❌ Suggestions
+  ❌ "Would you like me to..."
+  ❌ Any closing remarks
+
+- End output immediately after last feature
+
+----------------------------------------
+
+FEATURE GUIDELINES:
+
+- 4–6 lines per feature
+- Clear, concise, product-focused
+
+----------------------------------------
+
+FILTER OUT:
+
+- QA
+- Testing
+- Regression
+- Acceptance criteria
+
+----------------------------------------
+
+INPUT:
+{combined_input}
 """
 
     res = client.messages.create(
@@ -167,13 +269,14 @@ def create_pdf(text):
         if not line.strip():
             content.append(Spacer(1, 6))
         else:
-            content.append(Paragraph(re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", line), style))
+            formatted = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", line)
+            content.append(Paragraph(formatted, style))
 
     doc.build(content)
 
 # ===== INPUT =====
-sprint = st.text_input("Sprint")
-projects = st.text_input("Projects")
+sprint = st.text_input("Sprint (e.g., 62)")
+projects = st.text_input("Projects (comma separated)")
 
 # ===== RUN =====
 if st.button("Generate Release Notes"):
@@ -181,7 +284,7 @@ if st.button("Generate Release Notes"):
     ITERATIONS = [f"NS-{sprint}", f"NS {sprint}"]
     PROJECTS = [p.strip() for p in projects.split(",")]
 
-    with st.spinner("Fetching..."):
+    with st.spinner("Fetching data..."):
         all_stories = {}
         for p in PROJECTS:
             ids = get_work_item_ids(p, ITERATIONS)
@@ -192,10 +295,13 @@ if st.button("Generate Release Notes"):
                 "ac": clean_html(d["fields"].get("Microsoft.VSTS.Common.AcceptanceCriteria", ""))
             } for d in details]
 
-    with st.spinner("Generating..."):
+    with st.spinner("Generating release notes..."):
         st.session_state.release_notes = generate_release_notes(all_stories)
 
-    create_pdf(st.session_state.release_notes)
+    with st.spinner("Creating PDF..."):
+        create_pdf(st.session_state.release_notes)
+
+    st.success("Release notes generated")
 
 # ===== DISPLAY =====
 if st.session_state.release_notes:
@@ -203,4 +309,4 @@ if st.session_state.release_notes:
     st.markdown(st.session_state.release_notes)
 
     with open("Release_Notes.pdf", "rb") as f:
-        st.download_button("Download PDF", f)
+        st.download_button("⬇ Download PDF", f)
