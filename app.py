@@ -18,7 +18,7 @@ client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
 
-# ===== TOP RIGHT ICON TOGGLE =====
+# ===== TOP RIGHT TOGGLE =====
 col1, col2 = st.columns([10, 1])
 with col2:
     if st.button("🌙" if st.session_state.theme == "dark" else "☀️"):
@@ -143,7 +143,8 @@ def get_work_item_ids(project, ITERATIONS):
         f"[System.IterationPath] UNDER '{it}'" for it in iteration_paths
     ])
 
-    query = {{
+    # ✅ FIXED HERE
+    query = {
         "query": f"""
         SELECT [System.Id]
         FROM WorkItems
@@ -152,7 +153,7 @@ def get_work_item_ids(project, ITERATIONS):
             AND [System.State] = 'Closed'
             AND ({iteration_filter})
         """
-    }}
+    }
 
     response = requests.post(url, json=query, auth=HTTPBasicAuth('', PAT))
     return [item["id"] for item in response.json().get("workItems", [])]
@@ -330,7 +331,6 @@ if st.button("Generate Release Notes"):
     ITERATIONS = [f"NS-{sprint}", f"NS {sprint}"]
     PROJECTS = [p.strip() for p in projects.split(",")]
 
-    # FETCH
     with st.spinner("🔄 Fetching data..."):
         all_stories = {}
 
@@ -347,7 +347,6 @@ if st.button("Generate Release Notes"):
                     "ac": fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", "")
                 })
 
-    # CLEAN
     with st.spinner("🧹 Cleaning data..."):
         cleaned_stories = {}
 
@@ -360,11 +359,9 @@ if st.button("Generate Release Notes"):
                     "ac": clean_html(story["ac"])
                 })
 
-    # GENERATE
     with st.spinner("🤖 Generating release notes..."):
         release_notes = generate_release_notes(cleaned_stories)
 
-    # PDF
     with st.spinner("📄 Creating PDF..."):
         create_pdf(release_notes)
 
