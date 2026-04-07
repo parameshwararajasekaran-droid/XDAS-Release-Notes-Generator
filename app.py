@@ -14,74 +14,91 @@ ORG = "techmobius"
 PAT = st.secrets["AZURE_PAT"]
 client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
-# ===== UI STYLING (CLEAN DARK) =====
-st.markdown("""
+# ===== THEME STATE =====
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
+
+# ===== TOP RIGHT ICON TOGGLE =====
+col1, col2 = st.columns([10, 1])
+with col2:
+    if st.button("🌙" if st.session_state.theme == "dark" else "☀️"):
+        st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
+        st.rerun()
+
+# ===== THEME COLORS =====
+if st.session_state.theme == "dark":
+    bg_main = "#020617"
+    bg_secondary = "#0f172a"
+    text_primary = "#f9fafb"
+    text_secondary = "#d1d5db"
+    input_bg = "#111827"
+    border = "#374151"
+else:
+    bg_main = "#f9fafb"
+    bg_secondary = "#ffffff"
+    text_primary = "#111827"
+    text_secondary = "#374151"
+    input_bg = "#ffffff"
+    border = "#d1d5db"
+
+# ===== UI STYLING =====
+st.markdown(f"""
 <style>
+.stApp {{
+    background: linear-gradient(180deg, {bg_secondary}, {bg_main});
+    color: {text_secondary};
+}}
 
-/* Background */
-.stApp {
-    background: linear-gradient(180deg, #0f172a, #020617);
-    color: #d1d5db;
-}
-
-/* Headings */
-h1 {
-    color: #f9fafb;
+h1 {{
+    color: {text_primary};
     font-weight: 700;
     text-align: center;
-}
+}}
 
-/* Labels */
-label {
-    color: #9ca3af !important;
-}
+label {{
+    color: {text_secondary} !important;
+}}
 
-/* Inputs */
-input, textarea {
-    background-color: #111827 !important;
-    color: #f9fafb !important;
-    border: 1px solid #374151 !important;
+input, textarea {{
+    background-color: {input_bg} !important;
+    color: {text_primary} !important;
+    border: 1px solid {border} !important;
     border-radius: 10px !important;
     padding: 10px !important;
-}
+}}
 
-/* Focus */
-input:focus, textarea:focus {
+input:focus, textarea:focus {{
     border: 1px solid #10b981 !important;
     box-shadow: 0 0 0 1px #10b98133;
-}
+}}
 
-/* Generate Button */
-.stButton > button {
+.stButton > button {{
     background: linear-gradient(135deg, #10b981, #059669);
     color: white;
     border-radius: 10px;
     border: none;
     padding: 12px 20px;
     font-weight: 600;
-}
+}}
 
-/* Download PDF Button */
-.stDownloadButton > button {
+.stDownloadButton > button {{
     background: #1f2937;
     color: #f9fafb;
     border: 1px solid #374151;
     border-radius: 10px;
     padding: 10px 18px;
     font-weight: 600;
-}
+}}
 
-.stDownloadButton > button:hover {
+.stDownloadButton > button:hover {{
     border: 1px solid #10b981;
     box-shadow: 0 0 10px rgba(16,185,129,0.3);
-}
+}}
 
-/* Output text */
-.markdown-text-container {
+.markdown-text-container {{
     line-height: 1.7;
     font-size: 0.95rem;
-}
-
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -126,7 +143,7 @@ def get_work_item_ids(project, ITERATIONS):
         f"[System.IterationPath] UNDER '{it}'" for it in iteration_paths
     ])
 
-    query = {
+    query = {{
         "query": f"""
         SELECT [System.Id]
         FROM WorkItems
@@ -135,7 +152,7 @@ def get_work_item_ids(project, ITERATIONS):
             AND [System.State] = 'Closed'
             AND ({iteration_filter})
         """
-    }
+    }}
 
     response = requests.post(url, json=query, auth=HTTPBasicAuth('', PAT))
     return [item["id"] for item in response.json().get("workItems", [])]
@@ -306,28 +323,52 @@ projects = st.text_input("Projects (comma separated)")
 # ===== ACTION =====
 if st.button("Generate Release Notes"):
 
+    if not sprint or not projects:
+        st.warning("Please enter both Sprint and Projects")
+        st.stop()
+
     ITERATIONS = [f"NS-{sprint}", f"NS {sprint}"]
     PROJECTS = [p.strip() for p in projects.split(",")]
 
-    all_stories = {}
+    # FETCH
+    with st.spinner("🔄 Fetching data..."):
+        all_stories = {}
 
-    for project in PROJECTS:
-        ids = get_work_item_ids(project, ITERATIONS)
-        details = get_work_item_details(ids)
+        for project in PROJECTS:
+            ids = get_work_item_ids(project, ITERATIONS)
+            details = get_work_item_details(ids)
 
-        all_stories[project] = []
+            all_stories[project] = []
 
-        for item in details:
-            fields = item.get("fields", {})
-            all_stories[project].append({
-                "title": fields.get("System.Title", ""),
-                "ac": clean_html(fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", ""))
-            })
+            for item in details:
+                fields = item.get("fields", {})
+                all_stories[project].append({
+                    "title": fields.get("System.Title", ""),
+                    "ac": fields.get("Microsoft.VSTS.Common.AcceptanceCriteria", "")
+                })
 
-    release_notes = generate_release_notes(all_stories)
-    create_pdf(release_notes)
+    # CLEAN
+    with st.spinner("🧹 Cleaning data..."):
+        cleaned_stories = {}
 
-    st.success("Release notes generated")
+        for project, stories in all_stories.items():
+            cleaned_stories[project] = []
+
+            for story in stories:
+                cleaned_stories[project].append({
+                    "title": story["title"],
+                    "ac": clean_html(story["ac"])
+                })
+
+    # GENERATE
+    with st.spinner("🤖 Generating release notes..."):
+        release_notes = generate_release_notes(cleaned_stories)
+
+    # PDF
+    with st.spinner("📄 Creating PDF..."):
+        create_pdf(release_notes)
+
+    st.success("✅ Release notes generated")
 
     st.markdown("### Release Notes")
     st.markdown(release_notes)
