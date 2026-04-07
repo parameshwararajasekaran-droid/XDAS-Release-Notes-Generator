@@ -20,15 +20,76 @@ PROJECT_NAME_MAPPING = {
     "mojo v3": "Mojo"
 }
 
-# ===== UI =====
+# ===== UI STYLING (ADDED ONLY) =====
 st.markdown("""
 <style>
+
+/* Background */
 .stApp {
-    background: linear-gradient(135deg, #f5f7fa, #e4ecf3);
+    background: linear-gradient(180deg, #0f172a, #020617);
+    color: #e5e7eb;
 }
+
+/* Headings */
+h1, h2, h3 {
+    color: #f9fafb;
+    font-weight: 600;
+}
+
+/* Labels */
+label {
+    color: #9ca3af !important;
+    font-size: 0.9rem;
+}
+
+/* Inputs */
+input, textarea {
+    background-color: #111827 !important;
+    color: #e5e7eb !important;
+    border: 1px solid #374151 !important;
+    border-radius: 10px !important;
+    padding: 8px !important;
+}
+
+/* Focus effect */
+input:focus, textarea:focus {
+    border: 1px solid #10b981 !important;
+    box-shadow: 0 0 0 1px #10b98133;
+}
+
+/* Buttons */
+.stButton > button {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border-radius: 10px;
+    border: none;
+    padding: 10px 18px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+/* Hover */
+.stButton > button:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+
+/* Markdown output */
+.markdown-text-container {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #d1d5db;
+}
+
+/* Bold text */
+.markdown-text-container strong {
+    color: #f9fafb;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
+# ===== HEADER =====
 col1, col2 = st.columns([1, 5])
 
 with col1:
@@ -223,7 +284,7 @@ INPUT:
 """
 
     response = client.messages.create(
-       model="claude-sonnet-4-0",
+        model="claude-sonnet-4-0",
         max_tokens=4000,
         messages=[
             {"role": "user", "content": prompt}
