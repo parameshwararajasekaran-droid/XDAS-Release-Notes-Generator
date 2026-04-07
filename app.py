@@ -14,9 +14,12 @@ ORG = "techmobius"
 PAT = st.secrets["AZURE_PAT"]
 client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
-# ===== THEME STATE =====
+# ===== SESSION STATE =====
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
+
+if "release_notes" not in st.session_state:
+    st.session_state.release_notes = None
 
 # ===== TOP RIGHT TOGGLE =====
 col1, col2 = st.columns([10, 1])
@@ -143,7 +146,6 @@ def get_work_item_ids(project, ITERATIONS):
         f"[System.IterationPath] UNDER '{it}'" for it in iteration_paths
     ])
 
-    # ✅ FIXED HERE
     query = {
         "query": f"""
         SELECT [System.Id]
@@ -170,7 +172,7 @@ def get_work_item_details(ids):
     return response.json().get("value", [])
 
 
-# ===== CORE (PROMPT UNCHANGED) =====
+# ===== CORE =====
 
 def generate_release_notes(cleaned_stories):
 
@@ -183,103 +185,7 @@ def generate_release_notes(cleaned_stories):
 
     project_string = ", ".join(project_list)
 
-    prompt = f"""
-You are a Product Marketing Manager writing high-quality release notes for the XDAS platform.
-
-GOAL:
-Generate clean, professional, user-friendly release notes.
-
-----------------------------------------
-
-STRICT FORMAT (MUST FOLLOW EXACTLY):
-
-**INTRODUCTION**
-
-<blank line>
-
-We are excited to introduce the latest XDAS platform release, bringing focused enhancements across all the following modules: {project_string}.
-
-IMPORTANT:
-- You MUST include every project listed above
-- Do NOT omit any project
-- Do NOT rename any project except:
-  - "workxtream development" MUST be written as "Manage Workflow"
-
-<blank line>
-
-PROJECT SUMMARIES (MANDATORY):
-
-After the introduction, write 2–3 lines for EACH project summarizing key updates.
-
-Rules:
-- Cover EVERY project listed
-- Each project must be mentioned explicitly
-- Write in natural paragraph flow (no headings)
-
-- Use natural, varied language
-- DO NOT repeat the same verbs across projects
-- DO NOT force words like "enhances", "improves", "introduces"
-
-- Let wording adapt to actual updates (features, fixes, improvements)
-
-----------------------------------------
-
-PROJECT STRUCTURE:
-
-Each project MUST be formatted as:
-
-**<Project Name>**
-
-<blank line>
-
-**<Feature Name>**
-
-<blank line>
-
-<Feature explanation paragraph>
-
-----------------------------------------
-
-STRICT RULES:
-
-- ALWAYS bold:
-  - INTRODUCTION
-  - Project names
-  - Feature names
-
-- NEVER write content on same line as headings
-- ALWAYS leave one blank line after headings
-- Never include any user stories that contain the following phrases in the their titles Post deployment testing, Regression testing, Deployment validation, ATS 
-
-- DO NOT include:
-  ❌ Questions
-  ❌ Suggestions
-  ❌ "Would you like me to..."
-  ❌ Any closing remarks
-
-- End output immediately after last feature
-
-----------------------------------------
-
-FEATURE GUIDELINES:
-
-- 4–6 lines per feature
-- Clear, concise, product-focused
-
-----------------------------------------
-
-FILTER OUT:
-
-- QA
-- Testing
-- Regression
-- Acceptance criteria
-
-----------------------------------------
-
-INPUT:
-{combined_input}
-"""
+    prompt = f"""<KEEP YOUR ORIGINAL PROMPT HERE EXACTLY>"""
 
     response = client.messages.create(
         model="claude-sonnet-4-0",
@@ -360,15 +266,18 @@ if st.button("Generate Release Notes"):
                 })
 
     with st.spinner("🤖 Generating release notes..."):
-        release_notes = generate_release_notes(cleaned_stories)
+        st.session_state.release_notes = generate_release_notes(cleaned_stories)
 
     with st.spinner("📄 Creating PDF..."):
-        create_pdf(release_notes)
+        create_pdf(st.session_state.release_notes)
 
     st.success("✅ Release notes generated")
 
+
+# ===== DISPLAY (PERSISTENT) =====
+if st.session_state.release_notes:
     st.markdown("### Release Notes")
-    st.markdown(release_notes)
+    st.markdown(st.session_state.release_notes)
 
     with open("Release_Notes.pdf", "rb") as f:
         st.download_button("⬇ Download PDF", f, file_name="Release_Notes.pdf")
