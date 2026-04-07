@@ -18,19 +18,6 @@ client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
 
-# ===== SUBTLE TOP RIGHT TOGGLE =====
-col_spacer, col_toggle = st.columns([12, 1])
-
-with col_toggle:
-    mode = st.radio(
-        "",
-        ["Dark", "Light"],
-        index=0 if st.session_state.theme == "dark" else 1,
-        horizontal=True,
-        label_visibility="collapsed"
-    )
-    st.session_state.theme = mode.lower()
-
 # ===== THEME COLORS =====
 if st.session_state.theme == "dark":
     bg_main = "#020617"
@@ -109,14 +96,19 @@ input:focus, textarea:focus {{
     box-shadow: 0 0 10px rgba(16,185,129,0.3);
 }}
 
-/* Subtle toggle */
-div[role="radiogroup"] {{
-    font-size: 11px !important;
-    opacity: 0.6;
+/* Bottom Toggle Buttons */
+.theme-toggle button {{
+    font-size: 12px !important;
+    padding: 6px 12px !important;
+    border-radius: 8px !important;
+    border: 1px solid {border} !important;
+    background: transparent !important;
+    color: {text_secondary} !important;
 }}
 
-div[role="radiogroup"]:hover {{
-    opacity: 1;
+.theme-toggle button:hover {{
+    border: 1px solid #10b981 !important;
+    color: #10b981 !important;
 }}
 
 </style>
@@ -377,3 +369,21 @@ if st.button("Generate Release Notes"):
         st.download_button("⬇ Download PDF", f, file_name="Release_Notes.pdf")
 
 
+# ===== BOTTOM THEME TOGGLE =====
+st.markdown("<br><br>", unsafe_allow_html=True)
+
+st.markdown("<div class='theme-toggle'>", unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns([4,1,1])
+
+with col2:
+    if st.button("Dark"):
+        st.session_state.theme = "dark"
+        st.rerun()
+
+with col3:
+    if st.button("Light"):
+        st.session_state.theme = "light"
+        st.rerun()
+
+st.markdown("</div>", unsafe_allow_html=True)
